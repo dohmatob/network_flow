@@ -10,9 +10,16 @@ from scipy import optimize
 
 
 class FlowNetWork(nx.DiGraph):
-    def __init__(self, formulation="lp", *args, **kwargs):
+    """
+    Parameters
+    ----------
+    lp_formulation: boolean, optional (default True)
+        If true, then the problem will be encoded and solved as a linear
+        program.
+    """
+    def __init__(self, lp_formulation=True, *args, **kwargs):
         super(FlowNetWork, self).__init__(self, *args, **kwargs)
-        self.formulation = formulation
+        self.lp_formulation = lp_formulation
         self.flow = {}
 
     def add_edge(self, src, dst, capacity=0.):
@@ -20,7 +27,7 @@ class FlowNetWork(nx.DiGraph):
         redge = dst, src
         super(FlowNetWork, self).add_edge(src, dst, capacity=capacity)
         self.flow[edge] = 0.
-        if self.formulation == "ff":
+        if not self.lp_formulation:
             super(FlowNetWork, self).add_edge(dst, src, capacity=0.)
             self.flow[redge] = 0.
 
@@ -76,7 +83,7 @@ class FlowNetWork(nx.DiGraph):
         -----
         Note that thes algorithm is not guaranteed to terminate.
         """
-        if self.formulation == "lp":
+        if self.lp_formulation:
             # precompute node and edge indices for subsequent referencing
             node_keys = {}
             for n, node in enumerate(self.nodes()):
@@ -117,7 +124,7 @@ class FlowNetWork(nx.DiGraph):
             flow = -out.fun
             for edge, e in edge_keys.items():
                 self.flow[edge] = out.x[e]
-        elif self.formulation == "ff":
+        else:
             # Ford-Fulkerson algorithm adapted from wikipedia page:
             # https://en.wikipedia.org/wiki/Ford%E2%80%93Fulkerson_algorithm
             # Note that this algorithm is not guaranteed to terminate.
@@ -145,13 +152,13 @@ class FlowNetWork(nx.DiGraph):
                 if amnt < 0.:
                     amnt *= -1.
                     src, dst = dst, src
-                print "\tSend %g units from %s to %s." % (amnt, src, dst)
+                print "\tSend %g unit(s) from %s to %s." % (amnt, src, dst)
         return flow
 
 if __name__ == "__main__":
     # build the network
-    G = FlowNetWork(formulation="ff")
-    which = "CLRS"
+    G = FlowNetWork(lp_formulation=True)
+    which = "Elvis"
     if which == "CLRS":
         G.add_edge("s", "1", capacity=16)
         G.add_edge("s", "2", capacity=13)
@@ -169,7 +176,7 @@ if __name__ == "__main__":
         G.add_edge("s", "2", capacity=6)
         G.add_edge("2", "t", capacity=10)
         G.add_edge("1", "2", capacity=1)
-    elif which == "wikipedia":
+    elif which == "Wikipedia":
         G.add_edge('s', 'o', capacity=3)
         G.add_edge('s', 'p', capacity=3)
         G.add_edge('o', 'p', capacity=2)
@@ -178,8 +185,18 @@ if __name__ == "__main__":
         G.add_edge('r', 't', capacity=3)
         G.add_edge('q', 'r', capacity=4)
         G.add_edge('q', 't', capacity=2)
+    elif which == "Elvis":
+        x = 1
+        G.add_edge('s', str(x), capacity=3)
+        while x < 200:
+            G.add_edge(str(x), str(x + 1), capacity=1)
+            x += 1
+        G.add_edge(str(x), "t", capacity=3)
     else:
         raise ValueError("Unknown problem: %s" % which)
+
+    # compute the max-flow
+    G.max_flow('s', 't')
 
     # plotting
     import matplotlib.pyplot as plt
@@ -188,6 +205,3 @@ if __name__ == "__main__":
     nx.draw_networkx(G, pos)
     nx.draw_networkx_edge_labels(G, pos, labels=edge_labels)
     plt.show()
-
-    # compute the max-flow
-    G.max_flow('s', 't')
